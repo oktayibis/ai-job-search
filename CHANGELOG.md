@@ -48,6 +48,10 @@ per-file diff commands.
     staged under `ui/staging/` and installed by the server, with a backup.
   - **Framework updates:** these keep personal files and portal choices, and offer a Claude merge
     run when methodology files changed.
+  - **Form suggestions:** uploading a CV or LinkedIn PDF starts a short read-only run that pre-fills
+    the setup form's empty fields (identity, languages, market, roles, skills, sectors). Each one is
+    tagged as a suggestion until the candidate edits it; `/setup` itself still runs afterwards on the
+    confirmed answers.
   - **Gmail:** sync is off for new profiles, since the connector is shared across the Claude
     account.
   - **Existing checkouts:** a personalized checkout is adopted as a profile in place.

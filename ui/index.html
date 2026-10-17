@@ -156,7 +156,7 @@ dialog .btns{justify-content:flex-end}
 .item .badge{margin-left:auto;background:var(--acc);color:#fff;border-radius:99px;padding:0 7px;font-size:11px;font-weight:650;line-height:18px}
 .banner{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:14px;border-radius:var(--r);
   background:linear-gradient(90deg,color-mix(in srgb,var(--acc) 16%,transparent),color-mix(in srgb,var(--violet) 8%,transparent));border:1px solid color-mix(in srgb,var(--acc) 25%,transparent)}
-.banner b{font-size:14px}.banner .m{flex:1}
+.banner b{font-size:14px;color:var(--ink)}.banner .m{flex:1}
 .jobs{display:flex;flex-direction:column;gap:8px}
 .job{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:12px 14px;background:var(--panel);border-radius:var(--r);box-shadow:var(--shadow);
   cursor:pointer;border:1px solid transparent;position:relative;transition:border-color .1s,transform .1s}
@@ -208,6 +208,8 @@ dialog .btns{justify-content:flex-end}
 .form label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:550;color:var(--ink2)}
 .form label small{font-weight:400;color:var(--mut)}
 .form .req:after{content:" *";color:var(--red)}
+.form .sg{margin-left:6px;font-size:11px;font-weight:600;color:var(--acc)}
+.field.sugg,textarea.sugg{border-color:color-mix(in srgb,var(--acc) 45%,var(--line));background:color-mix(in srgb,var(--acc) 6%,var(--bg))}
 .drop{border:1.5px dashed color-mix(in srgb,var(--acc) 40%,var(--line));border-radius:var(--r);padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;background:color-mix(in srgb,var(--acc) 4%,transparent)}
 .drop:hover,.drop.over{background:color-mix(in srgb,var(--acc) 10%,transparent)}
 .drop b{display:block}.drop .m{font-size:12px}
@@ -328,6 +330,10 @@ async function loadJobs(){const j=await api('/api/jobs');S.jobs=j.jobs;if(S.jg==
 async function loadRuns(){S.runs=await api('/api/runs');render()}
 
 // ---------- render ----------
+// Re-render without kicking the user out of the form field they are typing in.
+function renderKeep(){const el=document.activeElement,f=el?.dataset?.f,pos=el?.selectionStart,sc=$('#scroll').scrollTop;
+  render();if(!f)return;$('#scroll').scrollTop=sc;
+  const n=document.querySelector(`[data-f="${f}"]`);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch{}}}
 function render(){
   const fc=freshCount();
   $('#n-apps').textContent=S.rows.filter(r=>!r.final).length||'';$('#n-runs').textContent=S.runs.length||'';
@@ -497,40 +503,41 @@ function renderProfile(){
 const pill2=s=>`<span class="pill" style="--c:var(${(PST[s]||['','--gray'])[1]})"><span class="dot"></span>${(PST[s]||[s])[0]}</span>`;
 
 // ----- setup wizard -----
-const WSTEPS=['Welcome','You','CV & documents','Languages','What to search','Goals & limits','Review'];
+const WSTEPS=['Welcome','CV & documents','You','Languages','What to search','Goals & limits','Review'];
 const LEVELS=['Native','Fluent (C1–C2)','Professional working','Intermediate (B1–B2)','Basic (A1–A2)'];
 function wizLoad(){let a={};try{a=JSON.parse(localStorage.getItem('jobui.wiz.'+S.profile)||'{}')}catch{}
   if(!a.full_name&&S.pinfo)a.full_name=S.pinfo.name;if(!a.languages)a.languages=[{language:'English',level:''}];return {step:0,a}}
 function wizSave(){try{localStorage.setItem('jobui.wiz.'+S.profile,JSON.stringify(S.wiz.a))}catch{}}
-function fld(k,lab,o={}){const v=esc(S.wiz.a[k]||'');return `<label class="${o.full?'full':''}"><span class="${o.req?'req':''}">${lab}</span>
-  ${o.area?`<textarea class="field" data-f="${k}" rows="${o.rows||3}" placeholder="${esc(o.ph||'')}">${v}</textarea>`:`<input class="field" data-f="${k}" value="${v}" placeholder="${esc(o.ph||'')}" ${o.list?`list="${o.list}"`:''}>`}
+function fld(k,lab,o={}){const v=esc(S.wiz.a[k]||''),sg=S.wiz.a._s?.[k],cls=`field${sg?' sugg':''}`;
+  return `<label class="${o.full?'full':''}"><span><span class="${o.req?'req':''}">${lab}</span>${sg?SGTAG:''}</span>
+  ${o.area?`<textarea class="${cls}" data-f="${k}" rows="${o.rows||3}" placeholder="${esc(o.ph||'')}">${v}</textarea>`:`<input class="${cls}" data-f="${k}" value="${v}" placeholder="${esc(o.ph||'')}" ${o.list?`list="${o.list}"`:''}>`}
   ${o.help?`<small>${o.help}</small>`:''}</label>`}
 function renderSetup(){
   if(!S.wiz)S.wiz=wizLoad();const w=S.wiz,a=w.a,p=S.pinfo;
   $('#title').textContent='Set up';$('#subtitle').textContent=p.name;
   const nav=(next='Next')=>`<div class="wiznav"><button class="btn" data-wiz="${w.step-1}" ${w.step?'':'hidden'}>Back</button><span></span><button class="btn pri" data-wiz="${w.step+1}">${next}</button></div>`;
-  const docs=p.documents;let body='';
+  const docs=p.documents;let body='';suggestKick();
   if(w.step===0)body=`<div class="panel hero"><h2>Set up ${esc(a.full_name||p.name)}'s job search</h2>
     <p>Answer what you can — only fields with <span style="color:var(--red)">*</span> are required. Then Claude reads the CV, writes the profile, search terms and document templates, and asks only if something is unclear (for example two different dates for the same job).</p>
-    <p class="m">Takes about 5 minutes to fill in and a few minutes for Claude. Your answers are saved as you type.</p>${nav('Start')}</div>`;
-  if(w.step===1)body=`<div class="panel"><h3>About you</h3><p class="m">Used on the CV and cover letters.</p><div class="form">
+    <p class="m">Start with the CV: while you continue, Claude reads it and pre-fills the rest of the form for you to check. Takes about 5 minutes to fill in and a few minutes for Claude. Your answers are saved as you type.</p>${nav('Start')}</div>`;
+  if(w.step===2)body=`<div class="panel"><h3>About you</h3><p class="m">Used on the CV and cover letters.</p>${suggBanner()}<div class="form">
     ${fld('full_name','Full name',{req:1})}${fld('email','Email')}${fld('phone','Phone')}${fld('location','Home city / address',{ph:'e.g. Copenhagen, Denmark'})}
     ${fld('linkedin','LinkedIn URL')}${fld('github','GitHub / portfolio URL',{help:'Leave blank if none'})}
     ${fld('status','Current situation',{full:1,ph:'e.g. Available now — contract ended in September'})}</div>${nav()}</div>`;
-  if(w.step===2)body=`<div class="panel"><h3>CV & documents</h3><p class="m">Upload a CV, or paste it below. A LinkedIn PDF helps Claude cross-check dates and titles.</p>
+  if(w.step===1)body=`<div class="panel"><h3>CV & documents</h3><p class="m">Upload a CV, or paste it below. A LinkedIn PDF helps Claude cross-check dates and titles.</p>${suggBanner()}
     <div class="docs" style="margin-bottom:10px">${docs.map(d=>`<div class="doc">${I.doc}${esc(d.name)}<span class="tag">${esc(d.folder)}</span><button class="x" style="margin:0" data-deldoc="${esc(d.folder)}/${esc(d.name)}">${I.x}</button></div>`).join('')}</div>
     <div class="form"><div class="drop" data-upload="cv"><span style="font-size:22px">📄</span><div><b>Upload CV</b><span class="m">PDF, LaTeX, Markdown or text · up to 15 MB</span></div></div>
     <div class="drop" data-upload="linkedin"><span style="font-size:22px">🔗</span><div><b>Upload LinkedIn PDF</b><span class="m">Profile → More → Save to PDF</span></div></div>
     <div class="full btns">${['diplomas','references','projects'].map(f=>`<button class="btn" data-upload="${f}">+ ${label(f)}</button>`).join('')}</div>
     ${fld('cv_text','…or paste the CV text',{full:1,area:1,rows:6,help:docs.some(d=>d.folder==='cv')?'Not needed — a CV is uploaded.':'Only needed if you did not upload a CV.'})}</div>${nav()}</div>`;
-  if(w.step===3)body=`<div class="panel"><h3>Languages</h3><p class="m">Postings that require a language you don't list are filtered out, so list every working language.</p>
+  if(w.step===3)body=`<div class="panel"><h3>Languages${a._s?.languages?SGTAG:''}</h3><p class="m">Postings that require a language you don't list are filtered out, so list every working language.</p>${suggBanner()}
     ${(a.languages||[]).map((l,i)=>`<div class="langrow"><input class="field" data-lang="${i}" data-k="language" value="${esc(l.language)}" placeholder="Language">
       <select class="field" data-lang="${i}" data-k="level"><option value="">Level…</option>${LEVELS.map(x=>`<option ${l.level===x?'selected':''}>${x}</option>`).join('')}</select>
       <button class="x" style="margin:0" data-dellang="${i}">${I.x}</button></div>`).join('')}
     <button class="btn" data-addlang>+ Add language</button>
     <div class="form" style="margin-top:14px">${fld('cv_language','Language to write the CV in',{ph:'e.g. English'})}</div>${nav()}</div>`;
-  if(w.step===4)body=`<div class="panel"><h3>What to search for</h3><p class="m">This becomes the search queries and job boards.</p><div class="form">
-    ${fld('roles','Roles you want',{req:1,full:1,area:1,ph:'One per line, e.g.\nTravel coordinator\nGlobal mobility specialist',help:'3–8 job titles. Think about the day-to-day work you want.'})}
+  if(w.step===4)body=`<div class="panel"><h3>What to search for</h3><p class="m">This becomes the search queries and job boards. Leave roles, skills or sectors blank and Claude suggests them from your CV and LinkedIn — you can change them afterwards on the Profile page.</p>${suggBanner()}<div class="form">
+    ${fld('roles','Roles you want',{full:1,area:1,rows:5,ph:'One per line, e.g.\nTravel coordinator\nGlobal mobility specialist',help:'Optional · 3–8 job titles. Blank = Claude suggests them from your background.'})}
     ${fld('skills','Key skills to search on',{area:1,ph:'e.g. visa processing, Amadeus, budget reporting'})}${fld('industries','Industries / sectors',{area:1,ph:'e.g. NGOs, UN agencies, pharma'})}
     ${fld('market','Country / job market',{req:1,list:'markets',ph:'e.g. Denmark'})}${fld('areas','Cities or regions',{req:1,ph:'e.g. Copenhagen and Zealand'})}
     ${fld('commute_ideal','Ideal commute',{ph:'e.g. under 30 min'})}${fld('commute_ok','Acceptable',{ph:'e.g. up to 45 min'})}
@@ -547,36 +554,54 @@ function renderSetup(){
   if(w.step===6){const miss=wizMissing();
     const row=(k,l)=>a[k]?`<li><span class="ok">✓</span><b style="min-width:150px">${l}</b><span class="m" style="white-space:pre-wrap">${esc(String(a[k]).slice(0,160))}</span></li>`:'';
     body=`<div class="panel"><h3>Review</h3><p class="m">Claude uses these answers and ${docs.length} uploaded document${docs.length===1?'':'s'}.</p>
-    <ul class="checks">${row('full_name','Name')}${row('roles','Roles')}${row('market','Market')}${row('areas','Where')}${row('dealbreakers','Deal-breakers')}
+    <ul class="checks">${row('full_name','Name')}${a.roles?row('roles','Roles'):`<li><span class="ok">✦</span><b style="min-width:150px">Roles</b><span class="m">Claude suggests them from your CV${[a.skills,a.industries].some(x=>(x||'').trim())?'':', along with skills and sectors'}</span></li>`}${row('market','Market')}${row('areas','Where')}${row('dealbreakers','Deal-breakers')}
       <li><span class="ok">✓</span><b style="min-width:150px">Languages</b><span class="m">${esc((a.languages||[]).filter(l=>l.language).map(l=>l.language+(l.level?' ('+l.level+')':'')).join(', ')||'—')}</span></li>
       <li><span class="${docs.some(d=>['cv','linkedin'].includes(d.folder))||a.cv_text?'ok':'no'}">${docs.some(d=>['cv','linkedin'].includes(d.folder))||a.cv_text?'✓':'!'}</span><b style="min-width:150px">CV</b><span class="m">${docs.filter(d=>d.folder==='cv').map(d=>esc(d.name)).join(', ')||(a.cv_text?'pasted text':'missing')}</span></li></ul>
     ${miss.length?`<p class="bad" style="margin:12px 0 0">Still needed: ${miss.join(', ')}</p>`:''}
     ${p.status!=='new'?`<p class="m" style="margin:12px 0 0">This profile is already set up. Running setup again updates it; Claude asks before replacing anything you have.</p>`:''}
     <div class="wiznav"><button class="btn" data-wiz="5">Back</button><span class="m">Takes a few minutes · usually $1–3</span><button class="btn pri" data-startsetup ${miss.length?'disabled':''}>${I.spark}Start setup</button></div></div>`}
   $('#scroll').innerHTML=`<div class="page"><div class="steps">${WSTEPS.map((t,i)=>`<button data-wiz="${i}" class="${i===w.step?'on':i<w.step?'done':''}">${i<w.step?'✓ ':''}${t}</button>`).join('')}</div>${body}</div>`}
+const SGTAG='<span class="sg" title="Suggested by Claude from your CV — check it">✦ from your CV</span>';
+// Setup-form suggestions: a read-only run reads the uploaded CV / LinkedIn PDF and proposes answers.
+// They fill only empty fields, once per document set, and are tagged until the candidate edits them.
+function applySuggest(){const sg=S.pinfo?.suggest,a=S.wiz?.a;if(!sg?.current||!a||a._from===sg.id)return false;
+  a._s=a._s||{};for(const [k,v] of Object.entries(sg.fields||{}))if(!String(a[k]||'').trim()){a[k]=v;a._s[k]=1}
+  if((sg.languages||[]).length&&!a._langEdited){a.languages=sg.languages.map(l=>({...l}));a._s.languages=1}
+  a._from=sg.id;wizSave();return true}
+function suggestKick(){const sg=S.pinfo?.suggest;if(!sg)return;applySuggest();
+  if(sg.has_docs&&!sg.running&&!sg.current&&S.pinfo.status!=='ready'&&S.suggTried!==sg.doc){S.suggTried=sg.doc;
+    api('/api/suggest',{}).then(()=>{watch();loadProfile()}).catch(()=>{})}}
+function suggBanner(){const sg=S.pinfo?.suggest,a=S.wiz.a;
+  if(sg?.running)return `<div class="banner"><span style="font-size:18px">✦</span><div class="m"><b>Claude is reading your CV…</b><br>Its suggestions appear in the form in about half a minute. Keep going — it only fills fields you left empty.</div></div>`;
+  if(a._from&&Object.keys(a._s||{}).length)return `<div class="banner"><span style="font-size:18px">✦</span><div class="m"><b>Pre-filled from your CV</b><br>Fields marked ✦ are Claude's suggestions. Check them and change anything that's off.</div></div>`;
+  return ''}
+async function suggestDone(){try{S.pinfo=await api('/api/profile')}catch{return}
+  if(S.view!=='setup'||!S.wiz)return;const got=applySuggest();renderKeep();
+  if(got)toast('✦ Pre-filled the form from your CV — check the answers')}
 function wizMissing(){const a=S.wiz.a,docs=S.pinfo.documents,m=[];
-  if(!(a.full_name||'').trim())m.push('name');if(!(a.roles||'').trim())m.push('roles');if(!(a.market||'').trim())m.push('country');if(!(a.areas||'').trim())m.push('cities');
+  if(!(a.full_name||'').trim())m.push('name');if(!(a.market||'').trim())m.push('country');if(!(a.areas||'').trim())m.push('cities');
   if(!docs.some(d=>['cv','linkedin'].includes(d.folder))&&!(a.cv_text||'').trim())m.push('a CV');return m}
 async function startSetup(){try{const r=await api('/api/setup',{answers:S.wiz.a});S.view='profile';attach(r.id,true);toast('Setup started — Claude is reading your documents');await watch();await loadProfile()}catch(e){toast(e.message)}}
 function upload(folder){const f=$('#fileI');f.value='';f.onchange=async()=>{const file=f.files[0];if(!file)return;
   if(file.size>15*1024*1024)return toast('That file is larger than 15 MB');
   const data=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=no;r.readAsDataURL(file)});
-  try{toast('Uploading…');await api('/api/upload',{folder,name:file.name,data});await loadProfile();toast(`Added ${file.name}`)}catch(e){toast(e.message)}};f.click()}
+  try{toast('Uploading…');await api('/api/upload',{folder,name:file.name,data});await loadProfile();watch();toast(`Added ${file.name}`)}catch(e){toast(e.message)}};f.click()}
 $('#scroll').addEventListener('input',e=>{const t=e.target;if(!S.wiz||S.view!=='setup')return;
-  if(t.dataset.f){S.wiz.a[t.dataset.f]=t.value;wizSave()}
-  if(t.dataset.lang!=null){S.wiz.a.languages[+t.dataset.lang][t.dataset.k]=t.value;wizSave()}});
-$('#scroll').addEventListener('change',e=>{const t=e.target;if(S.wiz&&t.dataset.lang!=null){S.wiz.a.languages[+t.dataset.lang][t.dataset.k]=t.value;wizSave()}});
+  if(t.dataset.f){S.wiz.a[t.dataset.f]=t.value;unSuggest(t,t.dataset.f);wizSave()}
+  if(t.dataset.lang!=null){S.wiz.a.languages[+t.dataset.lang][t.dataset.k]=t.value;S.wiz.a._langEdited=1;wizSave()}});
+function unSuggest(t,k){const s=S.wiz.a._s;if(!s||!s[k])return;delete s[k];t.classList.remove('sugg');t.closest('label')?.querySelector('.sg')?.remove()}
+$('#scroll').addEventListener('change',e=>{const t=e.target;if(S.wiz&&t.dataset.lang!=null){S.wiz.a.languages[+t.dataset.lang][t.dataset.k]=t.value;S.wiz.a._langEdited=1;wizSave()}});
 $('#scroll').addEventListener('dragover',e=>{const d=e.target.closest('.drop');if(d){e.preventDefault();d.classList.add('over')}});
 $('#scroll').addEventListener('dragleave',e=>{e.target.closest('.drop')?.classList.remove('over')});
 $('#scroll').addEventListener('drop',async e=>{const d=e.target.closest('.drop');if(!d)return;e.preventDefault();d.classList.remove('over');const file=e.dataTransfer.files[0];if(!file)return;
   const data=await new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.readAsDataURL(file)});
-  try{await api('/api/upload',{folder:d.dataset.upload,name:file.name,data});await loadProfile();toast(`Added ${file.name}`)}catch(x){toast(x.message)}});
+  try{await api('/api/upload',{folder:d.dataset.upload,name:file.name,data});await loadProfile();watch();toast(`Added ${file.name}`)}catch(x){toast(x.message)}});
 async function profileClick(e){const t=e.target;
   const go=t.closest('[data-go]');if(go){S.view=go.dataset.go;S.sel=null;if(S.view==='setup')S.wiz=wizLoad();render();return true}
   if(t.closest('[data-newprof]')){newProfile();return true}
   const wz=t.closest('[data-wiz]');if(wz){const n=+wz.dataset.wiz;if(n>=0&&n<WSTEPS.length){S.wiz.step=n;render();$('#scroll').scrollTop=0}return true}
-  if(t.closest('[data-addlang]')){S.wiz.a.languages.push({language:'',level:''});wizSave();render();return true}
-  const dl=t.closest('[data-dellang]');if(dl){S.wiz.a.languages.splice(+dl.dataset.dellang,1);wizSave();render();return true}
+  if(t.closest('[data-addlang]')){S.wiz.a.languages.push({language:'',level:''});S.wiz.a._langEdited=1;wizSave();render();return true}
+  const dl=t.closest('[data-dellang]');if(dl){S.wiz.a.languages.splice(+dl.dataset.dellang,1);S.wiz.a._langEdited=1;wizSave();render();return true}
   if(t.closest('[data-startsetup]')){startSetup();return true}
   const up=t.closest('[data-upload]');if(up){upload(up.dataset.upload);return true}
   const dd=t.closest('[data-deldoc]');if(dd){const [folder,...n]=dd.dataset.deldoc.split('/');if(confirm(`Remove ${n.join('/')}?`)){try{await api('/api/documents/delete',{folder,name:n.join('/')});await loadProfile()}catch(x){toast(x.message)}}return true}
@@ -768,10 +793,11 @@ async function watch(){clearTimeout(S.wt);if(!S.profile)return;const prof=S.prof
     $('#rtitle').textContent=live.length>1?`${live.length} runs in progress`:head.label;
     $('#rsub').textContent=live.length?'Running · click to view':label(head.status);}
   const sig=runs.map(r=>r.id+r.status+r.artifacts.length).join();
-  if(sig!==S.sig){S.sig=sig;if(S.view==='runs'||!$('#note')||document.activeElement!==$('#note'))render()}
+  if(sig!==S.sig){S.sig=sig;if(S.view==='runs'||!$('#note')||document.activeElement!==$('#note'))renderKeep()}
   for(const r of finished)await onFinished(r);
   S.wt=setTimeout(watch,live.length?2000:8000)}
 async function onFinished(r){
+  if(r.action==='suggest')return suggestDone();
   loadApps();await loadJobs();
   if(['setup','setup-section','expand','merge'].includes(r.action)){await loadProfile();loadProfiles();
     if(r.id===S.lastAsk)return toast('Claude asked something — answer in the conversation',()=>attach(r.id,true),'Answer');
