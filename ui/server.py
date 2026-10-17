@@ -540,6 +540,7 @@ Adapt setup.md like this:
 - Use {path}. Do not ask which path to take.
 - Wherever setup.md asks something documents/setup_answers.md answers (identity, languages, career goals, deal-breakers, salary, commute, the Section 9 search configuration, the behavioral questions), use that answer instead of asking. Blank answers are optional: skip them, never invent them.
 - A6: apply all additive changes without asking.
+- Section 9 search terms: where the answers file has no target role titles, key skills or industries, derive them from the documents instead of asking. Roles: 3-8 titles that match the candidate's recent positions plus adjacent roles their experience clearly supports, in the market's usual wording (include local-language titles where the market uses them). Skills and industries: the strongest recurring ones in the documents. Write them into search-queries.md like answered ones, and in the Step 4 summary list them under "Suggested from your background" so the candidate can review them (they can change them with the "Refresh search settings" button on the Profile page).
 - Stop to ask only what is genuinely the candidate's call: A4 mismatches between documents, A6 conflicts with existing content, or a required answer missing from both the documents and the answers file. Put every open question in ONE numbered message, then end your turn; the candidate replies in the UI and this session resumes.
 - Step 3: write every file in its table, including the contact-block tokens in 05-cv-templates.md and 06-cover-letter-templates.md, and also replace the [YOUR NAME] tokens in cover_letters/cover_example.tex. Afterwards no [YOUR_...] placeholder may remain in CLAUDE.md, 01-candidate-profile.md, 04-job-evaluation.md, 05, 06, search-queries.md, cv/main_example.tex or cover_letters/cover_example.tex. If the candidate has no value for one (for example no GitHub), remove that line instead of leaving the token.
 - Job portals: follow Section 9's portal rule for the market named in the answers file.
@@ -1043,7 +1044,7 @@ class H(BaseHTTPRequestHandler):
             form = b.get("answers") or {}
             if not isinstance(form, dict):
                 return self._send(400, {"error": "bad answers"})
-            missing = [k for k in ("full_name", "roles", "market", "areas") if not str(form.get(k) or "").strip()]
+            missing = [k for k in ("full_name", "market", "areas") if not str(form.get(k) or "").strip()]
             has_docs = any(d["folder"] in ("cv", "linkedin") for d in list_documents(ws))
             has_text = bool(str(form.get("cv_text") or "").strip())
             if not has_docs and not has_text:

@@ -229,6 +229,8 @@ class ServerIsolation(ProfilesCase):
         b, _ = self.make("Bob")
         self.assertEqual(400, self.request(f"/p/{a}/api/setup", {"answers": {"full_name": "Anna"}})[0])
         (root_a / "slow").write_text("1")          # keep the fake setup run alive for a moment
+        no_roles = {"full_name": "Anna Berg", "market": "Denmark", "areas": "Copenhagen"}
+        self.assertEqual(400, self.request(f"/p/{a}/api/setup", {"answers": no_roles})[0])   # still needs a CV
         answers = {"full_name": "Anna Berg", "roles": "Travel coordinator", "market": "Denmark",
                    "areas": "Copenhagen", "cv_text": "Anna Berg - 5 years travel coordination",
                    "languages": [{"language": "English", "level": "Fluent"}], "salary": ""}
@@ -245,6 +247,15 @@ class ServerIsolation(ProfilesCase):
         prompt = server.RUNS[run["id"]]["prompt"]
         self.assertIn(".claude/commands/setup.md", prompt)
         self.assertIn("Path B", prompt)
+        self.assertIn("derive them from the documents", prompt)
+
+    def test_setup_without_roles_lets_claude_suggest_them(self):
+        a, root = self.make("Anna")
+        code, run = self.request(f"/p/{a}/api/setup", {"answers": {
+            "full_name": "Anna Berg", "market": "Denmark", "areas": "Copenhagen", "cv_text": "Travel coordinator, 5 years"}})
+        self.assertEqual(200, code, run)
+        self.wait(run["id"])
+        self.assertNotIn("Target role titles", (root / "documents" / "setup_answers.md").read_text())
 
     def test_staged_profile_files_are_installed_with_a_backup_and_nothing_else(self):
         a, root = self.make("Anna")

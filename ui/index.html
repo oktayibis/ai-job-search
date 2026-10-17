@@ -529,8 +529,8 @@ function renderSetup(){
       <button class="x" style="margin:0" data-dellang="${i}">${I.x}</button></div>`).join('')}
     <button class="btn" data-addlang>+ Add language</button>
     <div class="form" style="margin-top:14px">${fld('cv_language','Language to write the CV in',{ph:'e.g. English'})}</div>${nav()}</div>`;
-  if(w.step===4)body=`<div class="panel"><h3>What to search for</h3><p class="m">This becomes the search queries and job boards.</p><div class="form">
-    ${fld('roles','Roles you want',{req:1,full:1,area:1,ph:'One per line, e.g.\nTravel coordinator\nGlobal mobility specialist',help:'3–8 job titles. Think about the day-to-day work you want.'})}
+  if(w.step===4)body=`<div class="panel"><h3>What to search for</h3><p class="m">This becomes the search queries and job boards. Leave roles, skills or sectors blank and Claude suggests them from your CV and LinkedIn — you can change them afterwards on the Profile page.</p><div class="form">
+    ${fld('roles','Roles you want',{full:1,area:1,ph:'One per line, e.g.\nTravel coordinator\nGlobal mobility specialist',help:'Optional · 3–8 job titles. Blank = Claude suggests them from your background.'})}
     ${fld('skills','Key skills to search on',{area:1,ph:'e.g. visa processing, Amadeus, budget reporting'})}${fld('industries','Industries / sectors',{area:1,ph:'e.g. NGOs, UN agencies, pharma'})}
     ${fld('market','Country / job market',{req:1,list:'markets',ph:'e.g. Denmark'})}${fld('areas','Cities or regions',{req:1,ph:'e.g. Copenhagen and Zealand'})}
     ${fld('commute_ideal','Ideal commute',{ph:'e.g. under 30 min'})}${fld('commute_ok','Acceptable',{ph:'e.g. up to 45 min'})}
@@ -547,7 +547,7 @@ function renderSetup(){
   if(w.step===6){const miss=wizMissing();
     const row=(k,l)=>a[k]?`<li><span class="ok">✓</span><b style="min-width:150px">${l}</b><span class="m" style="white-space:pre-wrap">${esc(String(a[k]).slice(0,160))}</span></li>`:'';
     body=`<div class="panel"><h3>Review</h3><p class="m">Claude uses these answers and ${docs.length} uploaded document${docs.length===1?'':'s'}.</p>
-    <ul class="checks">${row('full_name','Name')}${row('roles','Roles')}${row('market','Market')}${row('areas','Where')}${row('dealbreakers','Deal-breakers')}
+    <ul class="checks">${row('full_name','Name')}${a.roles?row('roles','Roles'):`<li><span class="ok">✦</span><b style="min-width:150px">Roles</b><span class="m">Claude suggests them from your CV${[a.skills,a.industries].some(x=>(x||'').trim())?'':', along with skills and sectors'}</span></li>`}${row('market','Market')}${row('areas','Where')}${row('dealbreakers','Deal-breakers')}
       <li><span class="ok">✓</span><b style="min-width:150px">Languages</b><span class="m">${esc((a.languages||[]).filter(l=>l.language).map(l=>l.language+(l.level?' ('+l.level+')':'')).join(', ')||'—')}</span></li>
       <li><span class="${docs.some(d=>['cv','linkedin'].includes(d.folder))||a.cv_text?'ok':'no'}">${docs.some(d=>['cv','linkedin'].includes(d.folder))||a.cv_text?'✓':'!'}</span><b style="min-width:150px">CV</b><span class="m">${docs.filter(d=>d.folder==='cv').map(d=>esc(d.name)).join(', ')||(a.cv_text?'pasted text':'missing')}</span></li></ul>
     ${miss.length?`<p class="bad" style="margin:12px 0 0">Still needed: ${miss.join(', ')}</p>`:''}
@@ -555,7 +555,7 @@ function renderSetup(){
     <div class="wiznav"><button class="btn" data-wiz="5">Back</button><span class="m">Takes a few minutes · usually $1–3</span><button class="btn pri" data-startsetup ${miss.length?'disabled':''}>${I.spark}Start setup</button></div></div>`}
   $('#scroll').innerHTML=`<div class="page"><div class="steps">${WSTEPS.map((t,i)=>`<button data-wiz="${i}" class="${i===w.step?'on':i<w.step?'done':''}">${i<w.step?'✓ ':''}${t}</button>`).join('')}</div>${body}</div>`}
 function wizMissing(){const a=S.wiz.a,docs=S.pinfo.documents,m=[];
-  if(!(a.full_name||'').trim())m.push('name');if(!(a.roles||'').trim())m.push('roles');if(!(a.market||'').trim())m.push('country');if(!(a.areas||'').trim())m.push('cities');
+  if(!(a.full_name||'').trim())m.push('name');if(!(a.market||'').trim())m.push('country');if(!(a.areas||'').trim())m.push('cities');
   if(!docs.some(d=>['cv','linkedin'].includes(d.folder))&&!(a.cv_text||'').trim())m.push('a CV');return m}
 async function startSetup(){try{const r=await api('/api/setup',{answers:S.wiz.a});S.view='profile';attach(r.id,true);toast('Setup started — Claude is reading your documents');await watch();await loadProfile()}catch(e){toast(e.message)}}
 function upload(folder){const f=$('#fileI');f.value='';f.onchange=async()=>{const file=f.files[0];if(!file)return;

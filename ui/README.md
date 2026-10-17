@@ -40,7 +40,7 @@ One console can run independent job searches for several people, for example one
    1. Identity
    2. CV and documents (drag-and-drop PDF/TeX/TXT/MD up to 15 MB, or paste the CV text)
    3. Languages and CV language
-   4. Target roles, skills, market, city and commute radii
+   4. Market, city and commute radii, plus target roles, skills and sectors (optional: left blank, Claude derives them from the CV and LinkedIn and lists them in its summary for review)
    5. Goals, deal-breakers and optional salary and behavioral answers
    6. Review
 3. **Start setup**. The server writes the answers to `documents/setup_answers.md` and runs `/setup`:
