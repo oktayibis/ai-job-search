@@ -35,6 +35,22 @@ per-file diff commands.
   file serving limited to `cv/`, `cover_letters/` and `documents/`, per-file locks so two runs
   never write the tracker or `seen_jobs.json` at once, Stop and Ctrl+C that end a run's whole
   process group, and visible warnings for permission denials and an unauthorized Gmail connector.
+- **Web console profiles: several independent job searches, set up from a form**
+  (`ui/profiles.py`, `ui/README.md`, `tests/test_ui_profiles.py`). Each search is a plain folder
+  under `~/JobSearch/profiles/<slug>` (`JOBUI_HOME`) holding a copy of the framework, read from
+  the app's `master` commit, never from the working tree, plus that person's data.
+  - **Runs and locks:** every `claude -p` run starts in its profile's folder, and runs, locks and
+    history are scoped per profile.
+  - **Setup:** "New job search" walks through a form (identity, CV/document upload, languages,
+    target roles and commute, goals and deal-breakers) and then runs `/setup` from
+    `documents/setup_answers.md`, asking only about genuine conflicts.
+  - **Protected files:** headless runs cannot write inside `.claude/`, so profile files are
+    staged under `ui/staging/` and installed by the server, with a backup.
+  - **Framework updates:** these keep personal files and portal choices, and offer a Claude merge
+    run when methodology files changed.
+  - **Gmail:** sync is off for new profiles, since the connector is shared across the Claude
+    account.
+  - **Existing checkouts:** a personalized checkout is adopted as a profile in place.
 
 ### Fixed
 
