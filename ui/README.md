@@ -37,12 +37,15 @@ One console can run independent job searches for several people, for example one
 
 1. Sidebar → profile switcher → **New job search** → name.
 2. The setup form, with a draft saved as you type:
-   1. Identity
-   2. CV and documents (drag-and-drop PDF/TeX/TXT/MD up to 15 MB, or paste the CV text)
+   1. CV and documents (drag-and-drop PDF/TeX/TXT/MD up to 15 MB, or paste the CV text)
+   2. Identity
    3. Languages and CV language
    4. Market, city and commute radii, plus target roles, skills and sectors (optional: left blank, Claude derives them from the CV and LinkedIn and lists them in its summary for review)
    5. Goals, deal-breakers and optional salary and behavioral answers
    6. Review
+
+   Uploading a CV or LinkedIn PDF starts a short **suggestion run** (about 10-20 s, roughly $0.20 with Sonnet). It reads only `documents/`, cannot write files or use the web, and returns JSON that the server validates and keeps in `ui/suggestions.json`. The form fills the *empty* fields from it: identity, languages, market, city, roles, skills and sectors. Each one is tagged "✦ from your CV" until you edit it. Uploading another document reads them again.
+
 3. **Start setup**. The server writes the answers to `documents/setup_answers.md` and runs `/setup`:
    - It uses the uploaded documents (Path A), or the pasted CV (Path B).
    - It takes every answer from the file instead of asking, and applies additive changes without confirmation.
@@ -84,6 +87,7 @@ A checkout personalized before profiles existed is registered as an **external**
 | `JOBUI_HOME` | `~/JobSearch` | Where `profiles.json` and the profile folders live |
 | `JOBUI_TEMPLATE_REF` | `master` | Git ref new profiles and framework updates are copied from |
 | `JOBUI_AUTO_BRIEF` | `1` | `0` turns off the role briefs written after a scrape |
+| `JOBUI_SUGGEST_MODEL` | `sonnet` | Model for the setup-form suggestion run |
 | `CLAUDE_UI_ARGS` | `--permission-mode acceptEdits --allowedTools ...` | Extra flags for every `claude -p` run |
 
 ## Security notes

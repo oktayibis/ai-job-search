@@ -57,7 +57,14 @@ if os.path.exists("stage_me"):   # behave like Claude under the write-protected 
         {"tool_name": "Edit", "tool_input": {"file_path": os.getcwd() + "/.claude/skills/job-scraper/search-queries.md"}}]}), flush=True)
 if "SLOW" in os.environ.get("FAKE_MODE", "") or os.path.exists("slow"):
     time.sleep(3)
-print(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": "Done."}]}}), flush=True)
+text = "Done."
+if "propose answers for their job-search setup form" in sys.argv[sys.argv.index("-p") + 1]:
+    text = "Here you go:\n```json\n" + json.dumps({
+        "full_name": "Anna Berg", "email": "anna@example.com", "phone": "", "market": "Denmark",
+        "roles": ["Travel coordinator", "Rejsekoordinator", ""], "skills": ["Amadeus", "visa processing"],
+        "languages": [{"language": "English", "level": "Fluent (C1–C2)"}, {"language": "Danish", "level": "pretty good"}],
+        "evil": "not a form field"}) + "\n```"
+print(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}), flush=True)
 print(json.dumps({"type": "result", "is_error": False, "total_cost_usd": 0.01}), flush=True)
 """
 
@@ -223,6 +230,34 @@ class ServerIsolation(ProfilesCase):
         self.assertEqual(200, self.request(f"/p/{a}/api/upload", {"folder": "cv", "name": "evil.pdf", "data": data})[0])
         names = sorted(d["name"] for d in self.request(f"/p/{a}/api/profile")[1]["documents"])
         self.assertEqual(["evil (2).pdf", "evil.pdf"], names)                        # never overwrites
+
+    def suggest_run(self, slug):
+        return next(r for r in server.RUNS.values() if r.get("ws") == slug and r["action"] == "suggest")
+
+    def test_cv_upload_suggests_form_answers_read_only(self):
+        a, root = self.make("Anna")
+        self.assertEqual(400, self.request(f"/p/{a}/api/suggest", {})[0])               # nothing to read yet
+        data = base64.b64encode(b"%PDF-1.4 cv").decode()
+        self.assertEqual(200, self.request(f"/p/{a}/api/upload", {"folder": "cv", "name": "cv.pdf", "data": data})[0])
+        run = self.wait(self.suggest_run(a)["id"])                                     # started by the upload
+        self.assertEqual("done", run["status"], run["lines"])
+        sg = self.request(f"/p/{a}/api/profile")[1]["suggest"]
+        self.assertTrue(sg["current"])
+        self.assertEqual({"full_name": "Anna Berg", "email": "anna@example.com", "market": "Denmark",
+                          "roles": "Travel coordinator\nRejsekoordinator", "skills": "Amadeus, visa processing"},
+                         sg["fields"])                                                   # blanks and unknown keys dropped
+        self.assertEqual([{"language": "English", "level": "Fluent (C1–C2)"}, {"language": "Danish", "level": ""}],
+                         sg["languages"])                                                # unknown level cleared
+        argv = [json.loads(l)["argv"] for l in (root / "claude_calls.jsonl").read_text().splitlines()][-1]
+        denied = argv[argv.index("--disallowedTools") + 1:]
+        self.assertTrue({"Write", "Edit", "Bash", "WebFetch"} <= set(denied))
+        self.assertIn("--model", argv)
+        self.assertFalse((root / "documents" / "setup_answers.md").exists())           # nothing written to the profile
+        # A new document makes the stored suggestions stale until they are read again.
+        self.request(f"/p/{a}/api/upload", {"folder": "linkedin", "name": "li.pdf", "data": data})
+        self.wait(max((r for r in server.RUNS.values() if r.get("ws") == a and r["action"] == "suggest"),
+                      key=lambda r: r["started"])["id"])
+        self.assertTrue(self.request(f"/p/{a}/api/profile")[1]["suggest"]["current"])
 
     def test_setup_writes_answers_runs_exclusively_and_only_blocks_its_own_profile(self):
         a, root_a = self.make("Anna")
